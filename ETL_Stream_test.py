@@ -26,6 +26,9 @@ def fetch_binance_data():
 st.title("Binance Cryptocurrency Prices")
 st.write("ข้อมูลราคาของเหรียญที่ดึงจาก Binance API")
 
+# ตัวเลือกเหรียญที่ผู้ใช้สามารถเลือกได้
+selected_symbol = st.selectbox("เลือกเหรียญที่ต้องการดู:", symbols)
+
 # ตรวจสอบว่า session_state มีข้อมูลหรือไม่ ถ้าไม่มีให้สร้าง
 if 'historical_data' not in st.session_state:
     st.session_state.historical_data = []
@@ -49,18 +52,26 @@ while True:
         latest_data = pd.DataFrame(data_with_timestamp)
         df_placeholder.dataframe(latest_data)
 
-        # สร้างกราฟหุ้นด้วย Altair
+        # ฟิลเตอร์ข้อมูลสำหรับเหรียญที่เลือก
         historical_df = pd.DataFrame(st.session_state.historical_data)
-        chart = alt.Chart(historical_df).mark_line().encode(
-            x='timestamp:T',
-            y='value:Q',
-            color='coin:N'
-        ).properties(
-            width=800,
-            height=400
-        )
+        historical_df = historical_df[historical_df['coin'] == selected_symbol]
 
-        # แสดงกราฟในพื้นที่ที่สร้างขึ้น
-        chart_placeholder.altair_chart(chart, use_container_width=True)
+        if not historical_df.empty:
+            historical_df['previous_value'] = historical_df['value'].shift(1)
+            historical_df['change'] = historical_df['value'] - historical_df['previous_value']
+            historical_df['change_percent'] = (historical_df['change'] / historical_df['previous_value']) * 100
+
+            # สร้างกราฟแนวโน้มการเปลี่ยนแปลงราคา
+            chart = alt.Chart(historical_df).mark_line().encode(
+                x='timestamp:T',
+                y='change_percent:Q',
+                color='coin:N'
+            ).properties(
+                width=800,
+                height=400
+            ).interactive()
+
+            # แสดงกราฟในพื้นที่ที่สร้างขึ้น
+            chart_placeholder.altair_chart(chart, use_container_width=True)
 
     time.sleep(5)  # รอ 5 วินาทีก่อนดึงข้อมูลใหม่
